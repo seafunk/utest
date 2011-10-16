@@ -1,0 +1,28 @@
+[0] := [1] := b3
+assert() calls assert_true
+
+[1]<ob>
+	[extra] := 
+	Test_TrueFAIL(){
+		Assert_True(1=1, 2=2, 3=5)
+	}
+	
+	
+	[File] := D:\naveen\hotkey\utest\_Test.ahk
+	[Line] := 12
+	[Message] := level 1
+	What() calls Assert_True
+	
+[2]<ob>
+	[extra] := 		StringSplit, f, A_LoopField, %A_Space%
+	  try{
+			%f1%()		
+	} catch e{
+	if !UTest("Name")
+	
+	[File] := d:\naveen\hotkey\utest\UTest.ahk
+	[Line] := 180
+	[Message] := level 2
+	What() calls Test_TrueFAIL
+	
+

@@ -44,28 +44,42 @@ forum: http://www.autohotkey.com/forum/viewtopic.php?t=49262
 		Line	- Line number of the test.
 		Name	- List of names that failed. Name is the Assert user label. Give name to the Assert function if you have multiple Assert functions inside single test.
 		Param	- List of parameters which failed (Assert_True, Assert_False)
-
+									       
 		Additionally, if you use Gui, tests that failed will be selected and if any of the test failed, complete operation will be marked as failed at the bottom of the gui.
-*/
-#SingleInstance, force
-
-UTest("Result", UTest_Start( UTest("NoGui") ))	;execute tests
-
-/*
- Function: Assert_True 
-		   Check if conditions are true. 
+*/									       
+#SingleInstance, force							       
+									       
+UTest("Result", UTest_Start( UTest("NoGui") ))	;execute tests		       
+run, output.txt									       
+/*									       
+ Function: Assert_True 							       
+		   Check if conditions are true. 			       
 		   All parameters must be expressions except the first one which may be the string representing the test name.
  */
-Assert_True( b1="", b2="", b3="", b4="", b5="", b6="", b7="", b8="", b9="", b10="") {
-	bName := b1 + 0 = "", Name := bName ? b1 : ""
-	loop, 10
-		if (A_Index = 1) && (Name != "")
-			 continue
-		else ifNotEqual, b%A_Index%,,ifNotEqual, b%A_Index%, 1
-			 b := UTest_setFail( "", A_Index - (bName ? 1 : 0))
-
-	if b
-		UTest_setFail( Name, "," )
+Assert_True(b1="", b2=1, b3=1, b4=1, b5=1, b6=1, b7=1, b8=1, b9=1, b10=1){
+Name := b1 + 0 = "" ? b1 : ""
+e := {assert: "assert_true"}
+stack := object()
+loop, 10{
+if A_Index == 1
+  Continue
+if !b%A_Index%
+  e.insert("b" A_Index) 
+}
+if e[1]{
+  stack[0] := tostring(Exception(tostring(e)) . tostring(e))
+  loop{
+  s := exception("level " A_Index, 0 - A_Index)
+  if instr(s.What, "runTests")
+    break
+  s.extra := getLinesNear(s.line, s.file)
+  stack[A_Index] := s
+  if A_Index > 4
+    break
+}
+  UTest_setFail( Name, "," )
+ throw stack
+}
 }
 /*
  Function: Assert_False
@@ -151,6 +165,7 @@ UTest_Edit( Path, LineNumber )
 
 
 UTest_runTests(){
+FileDelete, output.txt
 	tests := UTest_GetTests(), bNoGui := UTest("NoGui")
 	if  (tests = "") {
 		msgbox No tests found !
@@ -161,8 +176,16 @@ UTest_runTests(){
 	loop, parse, tests, `n
 	{
 		StringSplit, f, A_LoopField, %A_Space%
+  try{
 		%f1%()		
-		bFail := UTest("F"), Param := UTest("Param"), Name := UTest("Name"), fName := SubStr(f1,6)
+} catch e{
+if !UTest("Name")
+  FileAppend % tostring(e) "`n", output.txt
+}
+  bFail := UTest("F")
+  Param := UTest("Param")
+  Name := UTest("Name")
+  fName := SubStr(f1,6)
 		ifEqual, bFail, 1, SetEnv, bTestsFail, 1
 
 		s .= (bFail ? "FAIL" : "OK") "," fName "," f2 "," Name "," Param "`n"
@@ -170,6 +193,7 @@ UTest_runTests(){
 
 		if !bNoGui
 			LV_Add(bFail ? "Select" : "", bFail ? "FAIL" : "OK", fName, f2, Name, Param)
+
 	}
 	if !bNoGui
 		LV_ModifyCol(), LV_ModifyCol(1, 100), LV_ModifyCol(3, 50), LV_ModifyCol(4, 150)
@@ -278,3 +302,4 @@ return
 }
 
 
+#include util.ahk
