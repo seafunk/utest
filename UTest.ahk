@@ -1,6 +1,7 @@
 /* Title: UTest 
 modified by Naveen Garg 
 changes: removed dependency on lowlevel functions which were brittle.
+         added stack trace information for failed tests
 
 originally by majkinetor: http://www.autohotkey.com/forum/author-majkinetor.html
 forum: http://www.autohotkey.com/forum/viewtopic.php?t=49262
@@ -11,148 +12,59 @@ forum: http://www.autohotkey.com/forum/viewtopic.php?t=49262
 
  Usage:	
 		 UTest will scan the script for functions which name starts with "Test_". Test functions have no parameter and use one of the 
-		 Assert functions. If Assert function fails, test will fail and you will see that in the result CSV (or in ListView representing that CSV).
-		 Result shows the test state, the function name, line number and test name if you have it. 
+		 Assert functions. If Assert function fails, test will fail and you will see that in the result output.txt with stack trace of failed tests.
+
 
 		 To test your script, use the following template :
 
 		(start code)
-			#include UTest.ahk
-			return
-
-			Test_MyTest1() {
+			ahktest()
+                        Return 
+                        #include UTest.ahk
+			
+                        Test_MyTest1() {
+			assert(1, expr2, expr3)
 			}
 
-			Test_MyTest2() {
+			Test_MyTest2(expr1, expr2) {
 			}
 			...
 			...
-			#include FunctionToTest.ahk
+			#include FunctionsToTest.ahk
 		(end code)
 
- Remarks:
-		By default, executing the test script will show the GUI with the results. To get the same results in textual form you can set NoGui option and 
-		query Result variable from UTest storage:
-
-		>  UTest("NoGUI", true)
-		>  #include UTest.ahk
-		>  msgbox  UTest("Result")	
-		
- CSV:
-		Result	- Test result (OK | FAIL).
-		Test	- Test function name.
-		Line	- Line number of the test.
-		Name	- List of names that failed. Name is the Assert user label. Give name to the Assert function if you have multiple Assert functions inside single test.
-		Param	- List of parameters which failed (Assert_True, Assert_False)
-									       
-		Additionally, if you use Gui, tests that failed will be selected and if any of the test failed, complete operation will be marked as failed at the bottom of the gui.
-*/									       
+ 
+*/			
+ahktest(){						       
 #SingleInstance, force							       
-									       
-UTest("Result", UTest_Start( UTest("NoGui") ))	;execute tests		       
-run, output.txt									       
-/*									       
- Function: Assert_True 							       
-		   Check if conditions are true. 			       
-		   All parameters must be expressions except the first one which may be the string representing the test name.
- */
-Assert_True(b1="", b2=1, b3=1, b4=1, b5=1, b6=1, b7=1, b8=1, b9=1, b10=1){
-Name := b1 + 0 = "" ? b1 : ""
-e := {assert: "assert_true"}
-stack := object()
+									    
+UTest("Result", UTest_Start( UTest("NoGui") ))	;execute tests		    
+run, output.txt									
+FileRead, output, output.txt
+return output
+}
+
+       
+Assert(b1="", b2=1, b3=1, b4=1, b5=1, b6=1, b7=1, b8=1, b9=1, b10=1){
+e := {}
 loop, 10{
 if A_Index == 1
   Continue
 if !b%A_Index%
-  e.insert("b" A_Index) 
+  e.insert("the " A_Index " test failed`n") 
 }
 if e[1]{
-  stack[0] := tostring(Exception(tostring(e)) . tostring(e))
-  loop{
-  s := exception("level " A_Index, 0 - A_Index)
-  if instr(s.What, "runTests")
-    break
-  s.extra := getLinesNear(s.line, s.file)
-  stack[A_Index] := s
-  if A_Index > 4
-    break
-}
+stack := getStackTrace()
+stack := RemoveUTestFunctionsFromStackTrace(stack)
+te := exception("fail", -1)
+s :=  tostring(e) "at " getLineSource(te.line, te.file) 
+. "`nin file " te.file "`nstacktrace: " 
+stack[0] := s
   UTest_setFail( Name, "," )
  throw stack
 }
 }
-/*
- Function: Assert_False
- 		   Check if conditions are false.
-		   All parameters must be expressions except the first one which may be the string representing the test name.
- */
-Assert_False( b1="", b2="", b3="", b4="", b5="", b6="", b7="", b8="", b9="", b10="" ) {
-	Name := b1 + 0 = "" ? b1 : ""
-	loop, 10
-		ifNotEqual, b%A_Index%,, ifNotEqual, b%A_Index%, 0
-			b := UTest_setFail( Name, A_Index - (bName ? 1 : 0))
-	
-	if b
-		UTest_setFail( Name, "," )
-}
-/*
- Function:	Assert_Empty 
-			Check if variable is empty.
- */
-Assert_Empty( Var, Name="" ){
-	if (Var != "")
-		UTest_setFail( Name )
-}
-/*
- Function: Assert_NotEmpty 
-		   Check if variable is not empty.
- */
-Assert_NotEmpty( Var, Name="" ){
-	if (Var = "")
-		UTest_setFail( Name )
-}
-/*
- Function: Assert_Contains 
- 		   Check if variable contains string.
- */
-Assert_Contains(Var, String, Name=""){
-	if !InStr(Var, String)
-		UTest_setFail( Name )
-}
 
-/*
- Function:  Assert_StartsWith
- 			Check if variable starts with string.
- */
-Assert_StartsWith(Var, String, Name=""){
-	if SubStr(Var, 1, Strlen(String)) != String
-		UTest_SetFail( Name )
-}
-/*
- Function: Assert_EndsWith
- 		   Check if variable ends with string.
- */
-Assert_EndsWith(Var, String, Name=""){
-	ifEqual, String,,return
-	if SubStr(Var, -1*Strlen(String)+1) != String
-		UTest_setFail( Name )
-}
-
-/*
- Function: Assert_Match
-		   Check if variable content matches RegEx pattern.
- */
-Assert_Match(Var, RegEx, Name=""){
-	if !RegExMatch(Var, RegEx) 
-		UTest_setFail( Name )
-}
-
-
-/*
- Function: UTest_Edit
-		   Open editor with given file and go to line number.
-		   Required to be implemented by the user in order for double click in GUI to work.
- */
 UTest_Edit( Path, LineNumber ) 
 {
 	Run, "d:\Utils\Edit Plus\EditPlus.exe" "%Path%"
@@ -180,7 +92,9 @@ FileDelete, output.txt
 		%f1%()		
 } catch e{
 if !UTest("Name")
-  FileAppend % tostring(e) "`n", output.txt
+  FileAppend % "test " A_Index . ":`n" tostring(e) "`n"
+. "******************************************`n"
+, output.txt
 }
   bFail := UTest("F")
   Param := UTest("Param")
